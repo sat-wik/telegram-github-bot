@@ -1,8 +1,9 @@
-// api/webhook.js (Vercel serverless function)
+// api/webhook.js
 const axios = require('axios');
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN;
+const GITHUB_USERNAME = process.env.GITHUB_USERNAME;
 const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}`;
 
 async function sendMessage(chatId, text) {
@@ -42,8 +43,30 @@ module.exports = async (req, res) => {
       const errMsg = error.response?.data?.message || error.message;
       await sendMessage(chatId, `❌ Failed: ${errMsg}`);
     }
+
+  } else if (text.startsWith('/deleterepo ')) {
+    const repoName = text.replace('/deleterepo ', '').trim();
+
+    try {
+      await axios.delete(
+        `https://api.github.com/repos/${GITHUB_USERNAME}/${repoName}`,
+        {
+          headers: {
+            Authorization: `Bearer ${GITHUB_TOKEN}`,
+            Accept: 'application/vnd.github+json',
+          },
+        }
+      );
+      await sendMessage(chatId, `🗑️ Repo "${repoName}" deleted.`);
+    } catch (error) {
+      const errMsg = error.response?.data?.message || error.message;
+      await sendMessage(chatId, `❌ Failed: ${errMsg}`);
+    }
+
   } else if (text === '/start') {
-    await sendMessage(chatId, 'Send /createrepo <name> <description> to create a GitHub repo.');
+    await sendMessage(chatId,
+      '📦 /createrepo <name> <description> — create a repo\n🗑️ /deleterepo <name> — delete a repo'
+    );
   }
 
   res.status(200).send('OK');
